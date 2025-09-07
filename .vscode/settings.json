@@ -1,0 +1,8 @@
+{
+    "C_Cpp.copilotHover": "disabled",
+    "chat.agent.enabled": false,
+    "chat.agent.maxRequests": 0,
+    "chat.commandCenter.enabled": false,
+    "chat.notifyWindowOnConfirmation": false,
+    "telemetry.feedback.enabled": false
+}
