@@ -102,7 +102,8 @@ fn tokenize(input: &str) -> Vec<Token> {
     return tokens;
 }
 
-fn validate_tokens(tokens: Vec<Token>) -> bool {
+/// Does some basic checks on the tokens (count, first/last token, no (), no 1.2.3, etc.)
+fn validate_tokens(tokens: &Vec<Token>) -> bool {
     if tokens.len() == 0 {
         return false;
     }
@@ -166,6 +167,34 @@ fn validate_tokens(tokens: Vec<Token>) -> bool {
     return true;
 }
 
+/// verifies parentheses are valid
+fn verify_parentheses(tokens: &Vec<Token>) -> bool {
+    let mut count = 0;
+    for token in tokens {
+        if token.token_type != TokenType::Paren {
+            continue;
+        }
+
+        if token.value == "(" {
+            count += 1;
+            continue;
+        }
+
+        if token.value == ")" {
+            if count == 0 {
+                return false;
+            }
+
+            count -= 1;
+        }
+    }
+
+    return count == 0;
+}
+
+/// verifies the grammar of the tokens (is the sequence of tokens valid)
+fn verify_tokens(tokens: &Vec<Token>) {}
+
 fn is_valid_input(input: &str, allowed_chars: &Vec<char>) -> bool {
     if input.len() == 0 {
         return false;
@@ -176,7 +205,15 @@ fn is_valid_input(input: &str, allowed_chars: &Vec<char>) -> bool {
     }
 
     let tokens = tokenize(input);
-    let result = validate_tokens(tokens);
+    let result = validate_tokens(&tokens);
+    if result == false {
+        return result;
+    }
+
+    let result = verify_parentheses(&tokens);
+    if result == false {
+        return result;
+    }
 
     return true;
 }
@@ -283,7 +320,7 @@ mod tests {
     #[test]
     fn test_validate_tokens() {
         let input = vec![];
-        let res = validate_tokens(input);
+        let res = validate_tokens(&input);
         assert_eq!(res, false);
 
         let input = vec![
@@ -332,7 +369,7 @@ mod tests {
                 value: "5".to_string(),
             },
         ];
-        let res = validate_tokens(input);
+        let res = validate_tokens(&input);
         assert_eq!(res, true);
 
         let input = vec![
@@ -345,7 +382,7 @@ mod tests {
                 value: "34".to_string(),
             },
         ];
-        let res = validate_tokens(input);
+        let res = validate_tokens(&input);
         assert_eq!(res, false);
 
         let input = vec![
@@ -362,7 +399,7 @@ mod tests {
                 value: "-".to_string(),
             },
         ];
-        let res = validate_tokens(input);
+        let res = validate_tokens(&input);
         assert_eq!(res, false);
 
         let input = vec![
@@ -387,7 +424,7 @@ mod tests {
                 value: ")".to_string(),
             },
         ];
-        let res = validate_tokens(input);
+        let res = validate_tokens(&input);
         assert_eq!(res, true);
 
         let input = vec![
@@ -400,7 +437,7 @@ mod tests {
                 value: ")".to_string(),
             },
         ];
-        let res = validate_tokens(input);
+        let res = validate_tokens(&input);
         assert_eq!(res, false);
 
         let input = vec![
@@ -413,43 +450,81 @@ mod tests {
                 value: "-".to_string(),
             },
         ];
-        let res = validate_tokens(input);
+        let res = validate_tokens(&input);
+        assert_eq!(res, false);
+
+        let input = vec![Token {
+            token_type: TokenType::Number,
+            value: ".5".to_string(),
+        }];
+        let res = validate_tokens(&input);
+        assert_eq!(res, false);
+
+        let input = vec![Token {
+            token_type: TokenType::Number,
+            value: "5.".to_string(),
+        }];
+        let res = validate_tokens(&input);
+        assert_eq!(res, false);
+
+        let input = vec![Token {
+            token_type: TokenType::Number,
+            value: ".".to_string(),
+        }];
+        let res = validate_tokens(&input);
+        assert_eq!(res, false);
+
+        let input = vec![Token {
+            token_type: TokenType::Number,
+            value: "1.2.5".to_string(),
+        }];
+        let res = validate_tokens(&input);
+        assert_eq!(res, false);
+    }
+
+    #[test]
+    fn test_verify_parentheses() {
+        let input = vec![
+            Token {
+                token_type: TokenType::Paren,
+                value: "(".to_string(),
+            },
+            Token {
+                token_type: TokenType::Paren,
+                value: ")".to_string(),
+            },
+        ];
+        let res = verify_parentheses(&input);
+        assert_eq!(res, true);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Paren,
+                value: ")".to_string(),
+            },
+            Token {
+                token_type: TokenType::Paren,
+                value: "(".to_string(),
+            },
+        ];
+        let res = verify_parentheses(&input);
         assert_eq!(res, false);
 
         let input = vec![
             Token {
-                token_type: TokenType::Number,
-                value: ".5".to_string(),
+                token_type: TokenType::Paren,
+                value: "(".to_string(),
             },
-        ];
-        let res = validate_tokens(input);
-        assert_eq!(res, false);
-
-        let input = vec![
             Token {
-                token_type: TokenType::Number,
-                value: "5.".to_string(),
+                token_type: TokenType::Paren,
+                value: "(".to_string(),
             },
-        ];
-        let res = validate_tokens(input);
-        assert_eq!(res, false);
-
-        let input = vec![
             Token {
-                token_type: TokenType::Number,
-                value: ".".to_string(),
+                token_type: TokenType::Paren,
+                value: ")".to_string(),
             },
         ];
-        let res = validate_tokens(input);
-        assert_eq!(res, false);
-
-        let input = vec![
-            Token {
-                token_type: TokenType::Number,
-                value: "1.2.5".to_string(),
-            },
-        ];
-        let res = validate_tokens(input);
+        let res = verify_parentheses(&input);
         assert_eq!(res, false);
     }
 }
