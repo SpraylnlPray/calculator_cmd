@@ -1,4 +1,8 @@
-use std::{io, ops::Index, process::exit};
+use std::{cell::RefCell, io, ops::Index, process::exit, rc::Rc};
+
+/// Possible extensions:
+/// - allow signs on numbers (e.g. 4 + -5)
+/// - add powers?
 
 fn clean_console() {
     #[cfg(target_family = "windows")]
@@ -192,8 +196,36 @@ fn verify_parentheses(tokens: &Vec<Token>) -> bool {
     return count == 0;
 }
 
+fn parse_expression<'a, T>(mut iter: Rc<RefCell<T>>) -> bool
+where
+    T: Iterator<Item = &'a Token>,
+{
+    if !parse_term(iter) {
+        return false;
+    }
+
+    return false;
+}
+
+fn parse_term<'a, T>(mut iter: T) -> bool {
+    return false;
+}
+
+fn parse_factor<'a, T>(mut iter: T) -> bool {
+    return false;
+}
+
 /// verifies the grammar of the tokens (is the sequence of tokens valid)
-fn verify_tokens(tokens: &Vec<Token>) {}
+fn verify_tokens(tokens: &Vec<Token>) -> bool {
+    let iter_ref = Rc::new(RefCell::new(tokens.iter().peekable()));
+
+    let res = parse_expression(Rc::clone(&iter_ref));
+    if res == true && iter_ref.borrow_mut().peek().is_none() {
+        return true;
+    }
+
+    return false;
+}
 
 fn is_valid_input(input: &str, allowed_chars: &Vec<char>) -> bool {
     if input.len() == 0 {
@@ -526,5 +558,21 @@ mod tests {
         ];
         let res = verify_parentheses(&input);
         assert_eq!(res, false);
+    }
+
+    #[test]
+    fn test_verify_tokens() {
+        let input = vec![
+            Token {
+                token_type: TokenType::Paren,
+                value: "(".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "1".to_string(),
+            },
+        ];
+        let res = verify_tokens(&input);
+        assert_eq!(res, true);
     }
 }
