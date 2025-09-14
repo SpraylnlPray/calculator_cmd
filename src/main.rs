@@ -1,9 +1,5 @@
 use std::{cell::RefCell, io, iter::Peekable, ops::Index, process::exit, rc::Rc};
 
-/// Possible extensions:
-/// - allow signs on numbers (e.g. 4 + -5)
-/// - add powers?
-
 fn clean_console() {
     #[cfg(target_family = "windows")]
     {
@@ -61,6 +57,42 @@ struct Token {
     token_type: TokenType,
 }
 
+fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option<&Token>) -> bool
+{
+    if is_start {
+        match current_token.token_type {
+            TokenType::Number => (),
+            TokenType::Operator => return false,
+            TokenType::Paren => {
+                if current_token.value != "(" {
+                    return false;
+                }
+            }
+        }
+    }
+
+    if let Some(next_t) = next_token {
+        // Default checks if next token exists
+        match current_token.token_type {
+            // A number may be followed by an operator or a closing paren (implicit multiplication is not allowed)
+            TokenType::Number => return next_t.token_type == TokenType::Operator || next_t.token_type == TokenType::Paren && next_t.value == ")",
+            // An operator may be followed by a number or an opening paren
+            TokenType::Operator => return next_t.token_type == TokenType::Number || next_t.token_type == TokenType::Paren && next_t.value == "(",
+            // An opening parent may be followed by a number
+            TokenType::Paren if current_token.value == "(" => return next_t.token_type == TokenType::Number,
+            // A closing paren may be followed by an operator
+            TokenType::Paren => return next_t.token_type == TokenType::Operator,
+        }
+    } else {
+        // At the end of the term we have to do some different checks
+        match current_token.token_type {
+            TokenType::Number => return true,
+            TokenType::Operator => return false,
+            TokenType::Paren => return current_token.value == ")",
+        }
+    }
+}
+
 /// This function assumes that the input string contains only values found in allowed_chars!
 fn tokenize(input: &str) -> Vec<Token> {
     let mut tokens: Vec<Token> = vec![];
@@ -106,26 +138,13 @@ fn tokenize(input: &str) -> Vec<Token> {
     return tokens;
 }
 
-/// Does some basic checks on the tokens (count, first/last token, no (), no 1.2.3, etc.)
+/// Does some basic checks on the tokens (count, no 1.2.3, etc.)
 fn do_basic_token_checks(tokens: &Vec<Token>) -> bool {
     if tokens.len() == 0 {
         return false;
     }
 
     if tokens.first() == None || tokens.last() == None {
-        return false;
-    }
-
-    // unwrap is safe because we checked if first is None
-    if tokens.first().unwrap().token_type != TokenType::Number
-        && tokens.first().unwrap().value != "("
-    {
-        return false;
-    }
-
-    // unwrap is safe because we checked if last is None
-    if tokens.last().unwrap().token_type != TokenType::Number && tokens.last().unwrap().value != ")"
-    {
         return false;
     }
 
@@ -141,30 +160,8 @@ fn do_basic_token_checks(tokens: &Vec<Token>) -> bool {
                     // disallow .
                     return false;
                 }
-
-                if let Some(&nt) = iter.peek() {
-                    if nt.token_type == TokenType::Number {
-                        // disallow 12 34
-                        return false;
-                    }
-                }
             }
-            TokenType::Operator => {
-                if let Some(&nt) = iter.peek() {
-                    if nt.token_type == TokenType::Operator {
-                        // disallow e.g. +-
-                        return false;
-                    }
-                }
-            }
-            TokenType::Paren => {
-                if let Some(&nt) = iter.peek() {
-                    if nt.token_type == TokenType::Paren && nt.value != t.value {
-                        // disallow ()
-                        return false;
-                    }
-                }
-            }
+            _ => ()
         }
     }
 
@@ -196,61 +193,6 @@ fn verify_parentheses(tokens: &Vec<Token>) -> bool {
     return count == 0;
 }
 
-fn parse_expression<'a, T>(iter: &mut Peekable<T>) -> bool
-where
-    T: Iterator<Item = &'a Token>,
-{
-    if !parse_term(iter) {
-        return false;
-    }
-
-    while let Some(t) = peek_next(iter) {
-        match t.value.as_str() {
-            "+" | "-" => {
-                println!("parse_expression: {}", t.value);
-                iter.next();
-
-                if !parse_term(iter) {
-                    return false;
-                }
-            }
-            _ => println!("parse_expression, found value {}", t.value),
-        }
-    }
-
-    return true;
-}
-
-fn parse_term<'a, T>(iter: &mut Peekable<T>) -> bool
-where
-    T: Iterator<Item = &'a Token>,
-{
-    if !parse_factor(iter) {
-        return false;
-    }
-
-    while let Some(t) = peek_next(iter) {
-        match t.value.as_str() {
-            "*" | "/" => {
-                println!("parse_term: {}", t.value);
-                iter.next();
-
-                if !parse_factor(iter) {
-                    return false;
-                }
-
-                return true;
-            }
-            _ => {
-                println!("parse_term, found value {}", t.value);
-                return false;
-            }
-        }
-    }
-
-    return true;
-}
-
 fn peek_next<'a, T>(iter: &mut Peekable<T>) -> Option<&'a Token>
 where
     T: Iterator<Item = &'a Token>,
@@ -258,51 +200,21 @@ where
     iter.peek().cloned()
 }
 
-fn parse_factor<'a, T>(iter: &mut Peekable<T>) -> bool
-where
-    T: Iterator<Item = &'a Token>,
-{
-    while let Some(t) = peek_next(iter) {
-        if t.value == "+" || t.value == "-" {
-            iter.next();
-            return parse_factor(iter);
-        }
-
-        if t.token_type == TokenType::Number {
-            iter.next();
-            return true;
-        }
-
-        if t.value == "(" {
-            iter.next();
-            if !parse_expression(iter) {
-                return false;
-            }
-
-            if let Some(t) = peek_next(iter) {
-                if t.value != ")" {
-                    return false;
-                }
-                iter.next();
-                return true;
-            } else {
-                return false;
-            }
-        }
-    }
-    return false;
-}
-
 /// verifies the grammar of the tokens (is the sequence of tokens valid)
 fn verify_grammar(tokens: &Vec<Token>) -> bool {
+    let mut is_start = true;
     let mut iter_ref = tokens.iter().peekable();
-    let res = parse_expression(&mut iter_ref);
+    while let Some(current_token) = iter_ref.next() {
+        let next_token = peek_next(&mut iter_ref);
+        if is_valid_next_token(is_start, current_token, next_token) {
+            is_start = false;
+            continue;
+        }
 
-    if res == true && iter_ref.peek().is_none() {
-        return true;
+        return false;
     }
 
-    return false;
+    return true;
 }
 
 fn is_valid_input(input: &str, allowed_chars: &Vec<char>) -> bool {
@@ -325,6 +237,11 @@ fn is_valid_input(input: &str, allowed_chars: &Vec<char>) -> bool {
         return result;
     }
 
+    let result = verify_grammar(&tokens);
+    if result == false {
+        return result;
+    }
+
     return true;
 }
 
@@ -343,6 +260,8 @@ fn main() -> Result<(), std::io::Error> {
 #[cfg(test)]
 mod tests {
     use crate::*;
+
+    // TODO: Tests for is_valid_input
 
     #[test]
     fn test_is_valid_calculation() {
@@ -480,87 +399,6 @@ mod tests {
         let res = do_basic_token_checks(&input);
         assert_eq!(res, true);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Number,
-                value: "12".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "34".to_string(),
-            },
-        ];
-        let res = do_basic_token_checks(&input);
-        assert_eq!(res, false);
-
-        let input = vec![
-            Token {
-                token_type: TokenType::Operator,
-                value: "+".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "34".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-        ];
-        let res = do_basic_token_checks(&input);
-        assert_eq!(res, false);
-
-        let input = vec![
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "34".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "2".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-        ];
-        let res = do_basic_token_checks(&input);
-        assert_eq!(res, true);
-
-        let input = vec![
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-        ];
-        let res = do_basic_token_checks(&input);
-        assert_eq!(res, false);
-
-        let input = vec![
-            Token {
-                token_type: TokenType::Operator,
-                value: "+".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-        ];
-        let res = do_basic_token_checks(&input);
-        assert_eq!(res, false);
-
         let input = vec![Token {
             token_type: TokenType::Number,
             value: ".5".to_string(),
@@ -652,7 +490,7 @@ mod tests {
                 value: "1".to_string(),
             },
             Token {
-                token_type: TokenType::Paren,
+                token_type: TokenType::Operator,
                 value: "-".to_string(),
             },
             Token {
@@ -678,5 +516,141 @@ mod tests {
         ];
         let res = verify_grammar(&input);
         assert_eq!(res, true);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Number,
+                value: "1".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "*".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "1".to_string(),
+            },
+        ];
+        let res = verify_grammar(&input);
+        assert_eq!(res, true);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Number,
+                value: "1".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "*".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "-".to_string(),
+            },
+        ];
+        let res = verify_grammar(&input);
+        assert_eq!(res, false);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Number,
+                value: "1".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "*".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "1".to_string(),
+            },
+            Token {
+                token_type: TokenType::Paren,
+                value: "(".to_string(),
+            },
+        ];
+        let res = verify_grammar(&input);
+        assert_eq!(res, false);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Number,
+                value: "12".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "34".to_string(),
+            },
+        ];
+        let res = verify_grammar(&input);
+        assert_eq!(res, false);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Operator,
+                value: "+".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "34".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "-".to_string(),
+            },
+        ];
+        let res = verify_grammar(&input);
+        assert_eq!(res, false);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Paren,
+                value: "(".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "34".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "-".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "2".to_string(),
+            },
+            Token {
+                token_type: TokenType::Paren,
+                value: ")".to_string(),
+            },
+        ];
+        let res = verify_grammar(&input);
+        assert_eq!(res, true);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Paren,
+                value: "(".to_string(),
+            },
+            Token {
+                token_type: TokenType::Paren,
+                value: ")".to_string(),
+            },
+        ];
+        let res = verify_grammar(&input);
+        assert_eq!(res, false);
+
+        let input = vec![
+            Token {
+                token_type: TokenType::Operator,
+                value: "+".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "-".to_string(),
+            },
+        ];
+        let res = verify_grammar(&input);
+        assert_eq!(res, false);
     }
 }
