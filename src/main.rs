@@ -107,7 +107,7 @@ fn tokenize(input: &str) -> Vec<Token> {
 }
 
 /// Does some basic checks on the tokens (count, first/last token, no (), no 1.2.3, etc.)
-fn validate_tokens(tokens: &Vec<Token>) -> bool {
+fn do_basic_token_checks(tokens: &Vec<Token>) -> bool {
     if tokens.len() == 0 {
         return false;
     }
@@ -209,12 +209,12 @@ where
             "+" | "-" => {
                 println!("parse_expression: {}", t.value);
                 iter.borrow_mut().next();
-                
+
                 if !parse_term(Rc::clone(&iter)) {
                     return false;
                 }
-            },
-            _ => println!("parse_expression, found value {}", t.value)
+            }
+            _ => println!("parse_expression, found value {}", t.value),
         }
     }
 
@@ -234,23 +234,30 @@ where
             "*" | "/" => {
                 println!("parse_term: {}", t.value);
                 iter.borrow_mut().next();
-                
+
                 if !parse_factor(Rc::clone(&iter)) {
                     return false;
                 }
-            },
+            }
             _ => println!("parse_term, found value {}", t.value),
         }
-    } 
+    }
 
     return true;
+}
+
+fn peek_next<'a, T>(iter: Rc<RefCell<Peekable<T>>>) -> Option<&'a Token>
+where
+    T: Iterator<Item = &'a Token>,
+{
+    iter.borrow_mut().peek().cloned()
 }
 
 fn parse_factor<'a, T>(iter: Rc<RefCell<Peekable<T>>>) -> bool
 where
     T: Iterator<Item = &'a Token>,
 {
-    while let Some(&t) = iter.borrow_mut().peek() {
+    while let Some(t) = peek_next(Rc::clone(&iter)) {
         if t.value == "+" || t.value == "-" {
             iter.borrow_mut().next();
             return parse_factor(Rc::clone(&iter));
@@ -272,17 +279,17 @@ where
                     return false;
                 }
                 iter.borrow_mut().next();
+                return true;
             } else {
-                // Is None
+                return false;
             }
-            return true;
         }
     }
     return false;
 }
 
 /// verifies the grammar of the tokens (is the sequence of tokens valid)
-fn verify_tokens(tokens: &Vec<Token>) -> bool {
+fn verify_grammar(tokens: &Vec<Token>) -> bool {
     let iter_ref = Rc::new(RefCell::new(tokens.iter().peekable()));
     let res = parse_expression(Rc::clone(&iter_ref));
 
@@ -303,7 +310,7 @@ fn is_valid_input(input: &str, allowed_chars: &Vec<char>) -> bool {
     }
 
     let tokens = tokenize(input);
-    let result = validate_tokens(&tokens);
+    let result = do_basic_token_checks(&tokens);
     if result == false {
         return result;
     }
@@ -414,9 +421,9 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_tokens() {
+    fn test_do_basic_token_checks() {
         let input = vec![];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
 
         let input = vec![
@@ -465,7 +472,7 @@ mod tests {
                 value: "5".to_string(),
             },
         ];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, true);
 
         let input = vec![
@@ -478,7 +485,7 @@ mod tests {
                 value: "34".to_string(),
             },
         ];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
 
         let input = vec![
@@ -495,7 +502,7 @@ mod tests {
                 value: "-".to_string(),
             },
         ];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
 
         let input = vec![
@@ -520,7 +527,7 @@ mod tests {
                 value: ")".to_string(),
             },
         ];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, true);
 
         let input = vec![
@@ -533,7 +540,7 @@ mod tests {
                 value: ")".to_string(),
             },
         ];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
 
         let input = vec![
@@ -546,35 +553,35 @@ mod tests {
                 value: "-".to_string(),
             },
         ];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
 
         let input = vec![Token {
             token_type: TokenType::Number,
             value: ".5".to_string(),
         }];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
 
         let input = vec![Token {
             token_type: TokenType::Number,
             value: "5.".to_string(),
         }];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
 
         let input = vec![Token {
             token_type: TokenType::Number,
             value: ".".to_string(),
         }];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
 
         let input = vec![Token {
             token_type: TokenType::Number,
             value: "1.2.5".to_string(),
         }];
-        let res = validate_tokens(&input);
+        let res = do_basic_token_checks(&input);
         assert_eq!(res, false);
     }
 
@@ -625,18 +632,46 @@ mod tests {
     }
 
     #[test]
-    fn test_verify_tokens() {
+    fn test_verify_grammar() {
         let input = vec![
+            Token {
+                token_type: TokenType::Number,
+                value: "1".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "+".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "1".to_string(),
+            },
+            Token {
+                token_type: TokenType::Paren,
+                value: "-".to_string(),
+            },
             Token {
                 token_type: TokenType::Paren,
                 value: "(".to_string(),
             },
             Token {
                 token_type: TokenType::Number,
-                value: "1".to_string(),
+                value: "4".to_string(),
+            },
+            Token {
+                token_type: TokenType::Operator,
+                value: "-".to_string(),
+            },
+            Token {
+                token_type: TokenType::Number,
+                value: "5".to_string(),
+            },
+            Token {
+                token_type: TokenType::Paren,
+                value: ")".to_string(),
             },
         ];
-        let res = verify_tokens(&input);
+        let res = verify_grammar(&input);
         assert_eq!(res, true);
     }
 }
