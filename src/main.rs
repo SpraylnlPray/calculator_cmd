@@ -196,21 +196,21 @@ fn verify_parentheses(tokens: &Vec<Token>) -> bool {
     return count == 0;
 }
 
-fn parse_expression<'a, T>(iter: Rc<RefCell<Peekable<T>>>) -> bool
+fn parse_expression<'a, T>(iter: &mut Peekable<T>) -> bool
 where
     T: Iterator<Item = &'a Token>,
 {
-    if !parse_term(Rc::clone(&iter)) {
+    if !parse_term(iter) {
         return false;
     }
 
-    while let Some(&t) = iter.borrow_mut().peek() {
+    while let Some(t) = peek_next(iter) {
         match t.value.as_str() {
             "+" | "-" => {
                 println!("parse_expression: {}", t.value);
-                iter.borrow_mut().next();
+                iter.next();
 
-                if !parse_term(Rc::clone(&iter)) {
+                if !parse_term(iter) {
                     return false;
                 }
             }
@@ -221,64 +221,69 @@ where
     return true;
 }
 
-fn parse_term<'a, T>(iter: Rc<RefCell<Peekable<T>>>) -> bool
+fn parse_term<'a, T>(iter: &mut Peekable<T>) -> bool
 where
     T: Iterator<Item = &'a Token>,
 {
-    if !parse_factor(Rc::clone(&iter)) {
+    if !parse_factor(iter) {
         return false;
     }
 
-    while let Some(&t) = iter.borrow_mut().peek() {
+    while let Some(t) = peek_next(iter) {
         match t.value.as_str() {
             "*" | "/" => {
                 println!("parse_term: {}", t.value);
-                iter.borrow_mut().next();
+                iter.next();
 
-                if !parse_factor(Rc::clone(&iter)) {
+                if !parse_factor(iter) {
                     return false;
                 }
+
+                return true;
             }
-            _ => println!("parse_term, found value {}", t.value),
+            _ => {
+                println!("parse_term, found value {}", t.value);
+                return false;
+            }
         }
     }
 
     return true;
 }
 
-fn peek_next<'a, T>(iter: Rc<RefCell<Peekable<T>>>) -> Option<&'a Token>
+fn peek_next<'a, T>(iter: &mut Peekable<T>) -> Option<&'a Token>
 where
     T: Iterator<Item = &'a Token>,
 {
-    iter.borrow_mut().peek().cloned()
+    iter.peek().cloned()
 }
 
-fn parse_factor<'a, T>(iter: Rc<RefCell<Peekable<T>>>) -> bool
+fn parse_factor<'a, T>(iter: &mut Peekable<T>) -> bool
 where
     T: Iterator<Item = &'a Token>,
 {
-    while let Some(t) = peek_next(Rc::clone(&iter)) {
+    while let Some(t) = peek_next(iter) {
         if t.value == "+" || t.value == "-" {
-            iter.borrow_mut().next();
-            return parse_factor(Rc::clone(&iter));
+            iter.next();
+            return parse_factor(iter);
         }
 
         if t.token_type == TokenType::Number {
-            iter.borrow_mut().next();
+            iter.next();
             return true;
         }
 
         if t.value == "(" {
-            iter.borrow_mut().next();
-            if !parse_expression(Rc::clone(&iter)) {
+            iter.next();
+            if !parse_expression(iter) {
                 return false;
             }
 
-            if let Some(&t) = iter.borrow_mut().peek() {
+            if let Some(t) = peek_next(iter) {
                 if t.value != ")" {
                     return false;
                 }
-                iter.borrow_mut().next();
+                iter.next();
                 return true;
             } else {
                 return false;
@@ -290,10 +295,10 @@ where
 
 /// verifies the grammar of the tokens (is the sequence of tokens valid)
 fn verify_grammar(tokens: &Vec<Token>) -> bool {
-    let iter_ref = Rc::new(RefCell::new(tokens.iter().peekable()));
-    let res = parse_expression(Rc::clone(&iter_ref));
+    let mut iter_ref = tokens.iter().peekable();
+    let res = parse_expression(&mut iter_ref);
 
-    if res == true && iter_ref.borrow_mut().peek().is_none() {
+    if res == true && iter_ref.peek().is_none() {
         return true;
     }
 
