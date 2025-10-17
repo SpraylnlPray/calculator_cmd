@@ -1,11 +1,7 @@
-use core::ffi::c_str;
 use std::{
-    cell::RefCell,
-    io::{self, Error},
+    io::{self},
     iter::Peekable,
-    ops::Index,
     process::exit,
-    rc::Rc,
 };
 
 fn clean_console() {
@@ -84,16 +80,16 @@ fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option
             // A number may be followed by an operator or a closing paren (implicit multiplication is not allowed)
             TokenType::Number => {
                 return next_t.token_type == TokenType::Operator
-                    || next_t.token_type == TokenType::Paren && next_t.value == ")"
+                    || next_t.token_type == TokenType::Paren && next_t.value == ")";
             }
             // An operator may be followed by a number or an opening paren
             TokenType::Operator => {
                 return next_t.token_type == TokenType::Number
-                    || next_t.token_type == TokenType::Paren && next_t.value == "("
+                    || next_t.token_type == TokenType::Paren && next_t.value == "(";
             }
             // An opening parent may be followed by a number
             TokenType::Paren if current_token.value == "(" => {
-                return next_t.token_type == TokenType::Number
+                return next_t.token_type == TokenType::Number;
             }
             // A closing paren may be followed by an operator
             TokenType::Paren => return next_t.token_type == TokenType::Operator,
@@ -260,110 +256,91 @@ fn is_valid_input(input: &str, allowed_chars: &Vec<char>) -> bool {
     return true;
 }
 
-fn solve(input: &str) {
-    let tokens = tokenize(input);
-    let mut iter_ref = tokens.iter().peekable();
-
-    let is_first = true;
-    let mut total: f64 = 0.0;
-
-    while let Some(current_token) = iter_ref.next() {
-        solve_token(&tokens, current_token, &mut iter_ref, is_first, &mut total);
-    }
-}
-
-fn solve_token<'a, T>(
-    tokens: &Vec<Token>,
-    current_token: &Token,
-    iter_ref: &mut Peekable<T>,
-    is_first: bool,
-    total: &mut f64,
-) -> f64
+// Handles numbers and parentheses
+fn parse_factor<'a, T>(iter_ref: &mut Peekable<T>) -> f64
 where
     T: Iterator<Item = &'a Token>,
 {
-    let next_token = peek_next(iter_ref);
-    match current_token.token_type {
-        TokenType::Number => {
-            if current_token.value.contains('.') {
-                let value: f64 = current_token.value.parse::<f64>().unwrap_or(0.0);
-                if is_first {
-                    *total = value;
-                }
-                
-                if let Some(next_t) = next_token {
-                    iter_ref.next(); // Consume token
-                    match next_t.token_type {
-                        TokenType::Operator => match next_t.value.as_str() {
-                            "+" => {
-                                while let Some(current_token) = iter_ref.next() {
-                                    *total = *total
-                                        + solve_token(
-                                            &tokens,
-                                            current_token,
-                                            iter_ref,
-                                            is_first,
-                                            total,
-                                        );
-                                }
-                            }
-                            "-" => {
-                                while let Some(current_token) = iter_ref.next() {
-                                    *total = *total
-                                        - solve_token(
-                                            &tokens,
-                                            current_token,
-                                            iter_ref,
-                                            is_first,
-                                            total,
-                                        );
-                                }
-                            }
-                            "*" => {
-                                while let Some(current_token) = iter_ref.next() {
-                                    *total = *total
-                                        * solve_token(
-                                            &tokens,
-                                            current_token,
-                                            iter_ref,
-                                            is_first,
-                                            total,
-                                        );
-                                }
-                            }
-                            "/" => {
-                                while let Some(current_token) = iter_ref.next() {
-                                    *total = *total
-                                        / solve_token(
-                                            &tokens,
-                                            current_token,
-                                            iter_ref,
-                                            is_first,
-                                            total,
-                                        );
-                                }
-                            },
-                            _ => (),
-                        },
-                        _ => (),
-                    }
-                } else {
-                    if current_token.token_type == TokenType::Number {
-                        return value;
-                    }
-                }
-            } else {
-                let value = current_token.value.parse::<i64>().unwrap_or(0);
-                if is_first {
-                    // total = value;
-                }
-            }
-        }
-        TokenType::Operator => (),
-        TokenType::Paren => (),
+    let token = peek_next(iter_ref);
+    if token.is_none() {
+        eprintln!("parse_factor: Token is None!");
+        exit(1);
     }
 
-    return 1.0;
+    let token = token.unwrap();
+    if token.token_type == TokenType::Number {
+        iter_ref.next();
+        return token.value.parse::<f64>().unwrap_or(0.0);
+    } else if token.token_type == TokenType::Paren && token.value == "(" {
+        iter_ref.next();
+        let value = parse_expression(iter_ref);
+        let next_token = iter_ref.peek();
+        if next_token.is_none() {
+            eprintln!("parse_factor: Next token is none!");
+            exit(1);
+        }
+        let next_token = next_token.unwrap();
+        if next_token.value != ")" {
+            eprintln!(
+                "parse_factor: Expected closing paren but got {}",
+                next_token.value
+            );
+            exit(1);
+        }
+        iter_ref.next();
+        return value;
+    } else {
+        eprintln!("Unexpected token in factor: {}", token.value);
+        exit(1);
+    }
+}
+
+// handles * and /
+fn parse_term<'a, T>(iter_ref: &mut Peekable<T>) -> f64
+where
+    T: Iterator<Item = &'a Token>,
+{
+    let mut value = parse_factor(iter_ref);
+    while let Some(next_token) = peek_next(iter_ref)
+        && (next_token.value == "*" || next_token.value == "/")
+    {
+        iter_ref.next();
+        let right = parse_factor(iter_ref);
+        if next_token.value == "*" {
+            value *= right;
+        } else {
+            value /= right;
+        }
+    }
+    return value;
+}
+
+// handles + and -
+fn parse_expression<'a, T>(iter_ref: &mut Peekable<T>) -> f64
+where
+    T: Iterator<Item = &'a Token>,
+{
+    let mut value = parse_term(iter_ref);
+    while let Some(next_token) = peek_next(iter_ref)
+        && (next_token.value == "+" || next_token.value == "-")
+    {
+        iter_ref.next();
+        let right = parse_term(iter_ref);
+        if next_token.value == "+" {
+            value += right;
+        } else {
+            value -= right;
+        }
+    }
+
+    return value;
+}
+
+fn solve(input: &str) -> f64 {
+    let tokens = tokenize(input);
+    let mut iter_ref = tokens.iter().peekable();
+    let result = parse_expression(&mut iter_ref);
+    return result;
 }
 
 fn main() -> Result<(), std::io::Error> {
@@ -380,7 +357,8 @@ fn main() -> Result<(), std::io::Error> {
         return Ok(());
     }
 
-    solve(&input);
+    let result = solve(&input);
+    println!("Result: {result}");
 
     Ok(())
 }
@@ -390,6 +368,7 @@ mod tests {
     use crate::*;
 
     // TODO: Tests for is_valid_input
+    // TODO: Tests for solve
 
     #[test]
     fn test_is_valid_calculation() {
