@@ -1,4 +1,12 @@
-use std::{cell::RefCell, io, iter::Peekable, ops::Index, process::exit, rc::Rc};
+use core::ffi::c_str;
+use std::{
+    cell::RefCell,
+    io::{self, Error},
+    iter::Peekable,
+    ops::Index,
+    process::exit,
+    rc::Rc,
+};
 
 fn clean_console() {
     #[cfg(target_family = "windows")]
@@ -57,8 +65,7 @@ struct Token {
     token_type: TokenType,
 }
 
-fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option<&Token>) -> bool
-{
+fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option<&Token>) -> bool {
     if is_start {
         match current_token.token_type {
             TokenType::Number => (),
@@ -75,11 +82,19 @@ fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option
         // Default checks if next token exists
         match current_token.token_type {
             // A number may be followed by an operator or a closing paren (implicit multiplication is not allowed)
-            TokenType::Number => return next_t.token_type == TokenType::Operator || next_t.token_type == TokenType::Paren && next_t.value == ")",
+            TokenType::Number => {
+                return next_t.token_type == TokenType::Operator
+                    || next_t.token_type == TokenType::Paren && next_t.value == ")"
+            }
             // An operator may be followed by a number or an opening paren
-            TokenType::Operator => return next_t.token_type == TokenType::Number || next_t.token_type == TokenType::Paren && next_t.value == "(",
+            TokenType::Operator => {
+                return next_t.token_type == TokenType::Number
+                    || next_t.token_type == TokenType::Paren && next_t.value == "("
+            }
             // An opening parent may be followed by a number
-            TokenType::Paren if current_token.value == "(" => return next_t.token_type == TokenType::Number,
+            TokenType::Paren if current_token.value == "(" => {
+                return next_t.token_type == TokenType::Number
+            }
             // A closing paren may be followed by an operator
             TokenType::Paren => return next_t.token_type == TokenType::Operator,
         }
@@ -161,7 +176,7 @@ fn do_basic_token_checks(tokens: &Vec<Token>) -> bool {
                     return false;
                 }
             }
-            _ => ()
+            _ => (),
         }
     }
 
@@ -245,6 +260,112 @@ fn is_valid_input(input: &str, allowed_chars: &Vec<char>) -> bool {
     return true;
 }
 
+fn solve(input: &str) {
+    let tokens = tokenize(input);
+    let mut iter_ref = tokens.iter().peekable();
+
+    let is_first = true;
+    let mut total: f64 = 0.0;
+
+    while let Some(current_token) = iter_ref.next() {
+        solve_token(&tokens, current_token, &mut iter_ref, is_first, &mut total);
+    }
+}
+
+fn solve_token<'a, T>(
+    tokens: &Vec<Token>,
+    current_token: &Token,
+    iter_ref: &mut Peekable<T>,
+    is_first: bool,
+    total: &mut f64,
+) -> f64
+where
+    T: Iterator<Item = &'a Token>,
+{
+    let next_token = peek_next(iter_ref);
+    match current_token.token_type {
+        TokenType::Number => {
+            if current_token.value.contains('.') {
+                let value: f64 = current_token.value.parse::<f64>().unwrap_or(0.0);
+                if is_first {
+                    *total = value;
+                }
+                
+                if let Some(next_t) = next_token {
+                    iter_ref.next(); // Consume token
+                    match next_t.token_type {
+                        TokenType::Operator => match next_t.value.as_str() {
+                            "+" => {
+                                while let Some(current_token) = iter_ref.next() {
+                                    *total = *total
+                                        + solve_token(
+                                            &tokens,
+                                            current_token,
+                                            iter_ref,
+                                            is_first,
+                                            total,
+                                        );
+                                }
+                            }
+                            "-" => {
+                                while let Some(current_token) = iter_ref.next() {
+                                    *total = *total
+                                        - solve_token(
+                                            &tokens,
+                                            current_token,
+                                            iter_ref,
+                                            is_first,
+                                            total,
+                                        );
+                                }
+                            }
+                            "*" => {
+                                while let Some(current_token) = iter_ref.next() {
+                                    *total = *total
+                                        * solve_token(
+                                            &tokens,
+                                            current_token,
+                                            iter_ref,
+                                            is_first,
+                                            total,
+                                        );
+                                }
+                            }
+                            "/" => {
+                                while let Some(current_token) = iter_ref.next() {
+                                    *total = *total
+                                        / solve_token(
+                                            &tokens,
+                                            current_token,
+                                            iter_ref,
+                                            is_first,
+                                            total,
+                                        );
+                                }
+                            },
+                            _ => (),
+                        },
+                        _ => (),
+                    }
+                } else {
+                    if current_token.token_type == TokenType::Number {
+                        return value;
+                    }
+                }
+            } else {
+                let value = current_token.value.parse::<i64>().unwrap_or(0);
+                if is_first {
+                    // total = value;
+                }
+            }
+        }
+        TokenType::Operator => (),
+        TokenType::Paren => (),
+    }
+
+    return 1.0;
+}
+
 fn main() -> Result<(), std::io::Error> {
     let allowed_chars: Vec<char> = vec![
         '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '(', ')', ' ', '+', '-', '*', '/', '.',
@@ -254,6 +375,13 @@ fn main() -> Result<(), std::io::Error> {
     let input = get_input()?;
     println!("Received {input}");
     let is_valid = is_valid_input(&input, &allowed_chars);
+    if !is_valid {
+        println!("Invalid input.");
+        return Ok(());
+    }
+
+    solve(&input);
+
     Ok(())
 }
 
