@@ -149,6 +149,12 @@ fn tokenize(input: &str) -> Vec<Token> {
     return tokens;
 }
 
+#[cfg(test)]
+fn do_basic_token_checks_test(input: &str) -> bool {
+    let tokens = tokenize(input);
+    return do_basic_token_checks(&tokens);
+}
+
 /// Does some basic checks on the tokens (count, no 1.2.3, etc.)
 fn do_basic_token_checks(tokens: &Vec<Token>) -> bool {
     if tokens.len() == 0 {
@@ -177,6 +183,12 @@ fn do_basic_token_checks(tokens: &Vec<Token>) -> bool {
     }
 
     return true;
+}
+
+#[cfg(test)]
+fn verify_parentheses_test(input: &str) -> bool {
+    let tokens = tokenize(input);
+    return verify_parentheses(&tokens);
 }
 
 /// verifies parentheses are valid
@@ -209,6 +221,12 @@ where
     T: Iterator<Item = &'a Token>,
 {
     iter.peek().cloned()
+}
+
+#[cfg(test)]
+fn verify_grammar_test(input: &str) -> bool {
+    let tokens = tokenize(input);
+    return verify_grammar(&tokens);
 }
 
 /// verifies the grammar of the tokens (is the sequence of tokens valid)
@@ -453,311 +471,82 @@ mod tests {
 
     #[test]
     fn test_do_basic_token_checks() {
-        let input = vec![];
-        let res = do_basic_token_checks(&input);
+        let input = "";
+        let res = do_basic_token_checks_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Number,
-                value: "1".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "+".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "2.5".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "2".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "/".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "3".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "*".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "5".to_string(),
-            },
-        ];
-        let res = do_basic_token_checks(&input);
+        let input = "1 + 2.5 - (2) / 3 * 5";
+        let res = do_basic_token_checks_test(&input);
         assert_eq!(res, true);
 
-        let input = vec![Token {
-            token_type: TokenType::Number,
-            value: ".5".to_string(),
-        }];
-        let res = do_basic_token_checks(&input);
+        let input = ".5";
+        let res = do_basic_token_checks_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![Token {
-            token_type: TokenType::Number,
-            value: "5.".to_string(),
-        }];
-        let res = do_basic_token_checks(&input);
+        let input = "5.";
+        let res = do_basic_token_checks_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![Token {
-            token_type: TokenType::Number,
-            value: ".".to_string(),
-        }];
-        let res = do_basic_token_checks(&input);
+        let input = ".";
+        let res = do_basic_token_checks_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![Token {
-            token_type: TokenType::Number,
-            value: "1.2.5".to_string(),
-        }];
-        let res = do_basic_token_checks(&input);
+        let input = "1.2.5";
+        let res = do_basic_token_checks_test(&input);
         assert_eq!(res, false);
     }
 
     #[test]
     fn test_verify_parentheses() {
-        let input = vec![
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-        ];
-        let res = verify_parentheses(&input);
+        let input = "()";
+        let res = verify_parentheses_test(&input);
         assert_eq!(res, true);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-        ];
-        let res = verify_parentheses(&input);
+        let input = ")(";
+        let res = verify_parentheses_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-        ];
-        let res = verify_parentheses(&input);
+        let input = "(()";
+        let res = verify_parentheses_test(&input);
         assert_eq!(res, false);
     }
 
     #[test]
     fn test_verify_grammar() {
-        let input = vec![
-            Token {
-                token_type: TokenType::Number,
-                value: "1".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "+".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "1".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "4".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "5".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "1 + 1 - (4 - 5)";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, true);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Number,
-                value: "1".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "*".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "1".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "1 * 1";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, true);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Number,
-                value: "1".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "*".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "1 * -";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Number,
-                value: "1".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "*".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "1".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "1 * 1 (";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Number,
-                value: "12".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "34".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "12 34";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Operator,
-                value: "+".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "34".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "+ 34 -";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "34".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-            Token {
-                token_type: TokenType::Number,
-                value: "2".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "(34 - 2)";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, true);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Paren,
-                value: "(".to_string(),
-            },
-            Token {
-                token_type: TokenType::Paren,
-                value: ")".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "()";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, false);
 
-        let input = vec![
-            Token {
-                token_type: TokenType::Operator,
-                value: "+".to_string(),
-            },
-            Token {
-                token_type: TokenType::Operator,
-                value: "-".to_string(),
-            },
-        ];
-        let res = verify_grammar(&input);
+        let input = "+-";
+        let res = verify_grammar_test(&input);
         assert_eq!(res, false);
     }
 }
