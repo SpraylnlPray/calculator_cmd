@@ -61,6 +61,14 @@ struct Token {
     token_type: TokenType,
 }
 
+impl Token {
+    pub fn new(value: String, token_type: TokenType) -> Self {
+        return Self {
+            value, token_type
+        }
+    }
+}
+
 fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option<&Token>) -> bool {
     if is_start {
         match current_token.token_type {
@@ -89,7 +97,7 @@ fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option
             }
             // An opening parent may be followed by a number
             TokenType::Paren if current_token.value == "(" => {
-                return next_t.token_type == TokenType::Number;
+                return next_t.token_type == TokenType::Number; // TODO: Allow operator
             }
             // A closing paren may be followed by an operator
             TokenType::Paren => return next_t.token_type == TokenType::Operator,
@@ -112,10 +120,7 @@ fn tokenize(input: &str) -> Vec<Token> {
     while let Some(c) = chars.next() {
         match c {
             '0'..='9' | '.' => {
-                let mut token = Token {
-                    token_type: TokenType::Number,
-                    value: c.to_string(),
-                };
+                let mut token = Token::new(c.to_string(), TokenType::Number);
 
                 while let Some(&d) = chars.peek() {
                     match d {
@@ -130,16 +135,16 @@ fn tokenize(input: &str) -> Vec<Token> {
                 tokens.push(token);
             }
             '/' | '*' | '+' | '-' => {
-                tokens.push(Token {
-                    value: c.to_string(),
-                    token_type: TokenType::Operator,
-                });
+                tokens.push(Token::new(
+                    c.to_string(),
+                    TokenType::Operator,
+                ));
             }
             '(' | ')' => {
-                tokens.push(Token {
-                    value: c.to_string(),
-                    token_type: TokenType::Paren,
-                });
+                tokens.push(Token::new(
+                    c.to_string(),
+                    TokenType::Paren,
+                ));
             }
             ' ' => continue, // ignore whitespaces
             _ => continue, // ignore all other characters. Should never happen as this function assumes only valid characters are part of the input
@@ -385,8 +390,170 @@ fn main() -> Result<(), std::io::Error> {
 mod tests {
     use crate::*;
 
-    // TODO: Tests for is_valid_input
     // TODO: Tests for solve
+
+    #[test]
+    fn test_is_valid_next_token_operator() {
+        let is_start = true;
+        let current_token =  Token::new("+".to_string(), TokenType::Operator);
+        let next_token: Option<&Token> = None;
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("+".to_string(), TokenType::Operator);
+        let next_token =  Some(&Token::new("5".to_string(), TokenType::Number));
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("+".to_string(), TokenType::Operator);
+        let next_token =  Some(&Token::new("(".to_string(), TokenType::Paren));
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("+".to_string(), TokenType::Operator);
+        let next_token =  Some(&Token::new(")".to_string(), TokenType::Paren));
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("+".to_string(), TokenType::Operator);
+        let next_token: Option<&Token> = None;
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("+".to_string(), TokenType::Operator);
+        let next_token: Option<&Token> = None;
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_is_valid_next_token_number() {
+        let is_start = true;
+        let current_token =  Token::new("1".to_string(), TokenType::Number);
+        let next_token: Option<&Token> = Some(&Token::new("5".to_string(), TokenType::Number));
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("1".to_string(), TokenType::Number);
+        let next_token: Option<&Token> = Some(&Token::new("5".to_string(), TokenType::Number));
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("1".to_string(), TokenType::Number);
+        let next_token: Option<&Token> = Some(&Token::new("+".to_string(), TokenType::Operator));
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("1".to_string(), TokenType::Number);
+        let next_token: Option<&Token> = Some(&Token::new("(".to_string(), TokenType::Paren));
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("1".to_string(), TokenType::Number);
+        let next_token: Option<&Token> = Some(&Token::new(")".to_string(), TokenType::Paren));
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("1".to_string(), TokenType::Number);
+        let next_token: Option<&Token> = None;
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_is_valid_next_token_paren() {
+        let is_start = true;
+        let current_token =  Token::new("(".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = Some(&Token::new(")".to_string(), TokenType::Paren));
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = true;
+        let current_token =  Token::new("(".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = Some(&Token::new("5".to_string(), TokenType::Number));
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = true;
+        let current_token =  Token::new("(".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = Some(&Token::new("+".to_string(), TokenType::Operator)); // TODO: Allow operator
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = true;
+        let current_token =  Token::new(")".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = Some(&Token::new(")".to_string(), TokenType::Paren));
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("(".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = Some(&Token::new("5".to_string(), TokenType::Number));
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("(".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = Some(&Token::new("+".to_string(), TokenType::Operator));
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new(")".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = Some(&Token::new("+".to_string(), TokenType::Operator));
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new(")".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = Some(&Token::new("5".to_string(), TokenType::Number));
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new(")".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = None;
+        let expected = true;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+
+        let is_start = false;
+        let current_token =  Token::new("(".to_string(), TokenType::Paren);
+        let next_token: Option<&Token> = None;
+        let expected = false;
+        let actual = is_valid_next_token(is_start, &current_token, next_token);
+        assert_eq!(actual, expected);
+    }
 
     #[test]
     fn test_is_valid_calculation() {
