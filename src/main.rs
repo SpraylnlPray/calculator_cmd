@@ -97,7 +97,7 @@ fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option
             }
             // An opening parent may be followed by a number
             TokenType::Paren if current_token.value == "(" => {
-                return next_t.token_type == TokenType::Number; // TODO: Allow "-" operator
+                return next_t.token_type == TokenType::Number;
             }
             // A closing paren may be followed by an operator
             TokenType::Paren => return next_t.token_type == TokenType::Operator,
@@ -531,7 +531,7 @@ mod tests {
 
         let is_start = true;
         let current_token =  Token::new("(".to_string(), TokenType::Paren);
-        let next_token: Option<&Token> = Some(&Token::new("+".to_string(), TokenType::Operator)); // TODO: Allow operator
+        let next_token: Option<&Token> = Some(&Token::new("+".to_string(), TokenType::Operator));
         let expected = false;
         let actual = is_valid_next_token(is_start, &current_token, next_token);
         assert_eq!(actual, expected);
