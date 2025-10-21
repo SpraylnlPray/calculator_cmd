@@ -97,7 +97,7 @@ fn is_valid_next_token(is_start: bool, current_token: &Token, next_token: Option
             }
             // An opening parent may be followed by a number
             TokenType::Paren if current_token.value == "(" => {
-                return next_t.token_type == TokenType::Number; // TODO: Allow operator
+                return next_t.token_type == TokenType::Number; // TODO: Allow "-" operator
             }
             // A closing paren may be followed by an operator
             TokenType::Paren => return next_t.token_type == TokenType::Operator,
@@ -390,7 +390,38 @@ fn main() -> Result<(), std::io::Error> {
 mod tests {
     use crate::*;
 
-    // TODO: Tests for solve
+    #[test]
+    fn test_solve() {
+        let input = "1 + 2";
+        let actual = solve(input);
+        let expected = 3.0;
+        assert_eq!(actual, expected);
+
+        let input = "2 * 2";
+        let actual = solve(input);
+        let expected = 4.0;
+        assert_eq!(actual, expected);
+
+        let input = "2 * 2 - 1";
+        let actual = solve(input);
+        let expected = 3.0;
+        assert_eq!(actual, expected);
+
+        let input = "2 * (2 - 1)";
+        let actual = solve(input);
+        let expected = 2.0;
+        assert_eq!(actual, expected);
+
+        let input = "5 / 2.5";
+        let actual = solve(input);
+        let expected = 2.0;
+        assert_eq!(actual, expected);
+
+        let input = "(4 * (3 - 1)) / 2";
+        let actual = solve(input);
+        let expected = 4.0;
+        assert_eq!(actual, expected);
+    }
 
     #[test]
     fn test_is_valid_next_token_operator() {
